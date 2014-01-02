@@ -13,7 +13,7 @@
 // limitations under the License.
 
 var Snap = (function() {
-Snap.version = "0.1.1";
+Snap.version = "0.2.1";
 /*\
  * Snap
  [ method ]
@@ -87,7 +87,10 @@ var has = "hasOwnProperty",
     },
     xlink = "http://www.w3.org/1999/xlink",
     xmlns = "http://www.w3.org/2000/svg",
-    hub = {};
+    hub = {},
+    URL = Snap.url = function (url) {
+        return "url('#" + url + "')";
+    };
 
 function $(el, attr) {
     if (attr) {
@@ -529,6 +532,16 @@ function Matrix(a, b, c, d, e, f) {
         a[1] && (a[1] /= mag);
     }
     /*\
+     * Matrix.determinant
+     [ method ]
+     **
+     * Finds determinant of the given matrix.
+     = (number) determinant
+    \*/
+    matrixproto.determinant = function () {
+        return this.a * this.d - this.b * this.c;
+    };
+    /*\
      * Matrix.split
      [ method ]
      **
@@ -560,6 +573,10 @@ function Matrix(a, b, c, d, e, f) {
         normalize(row[1]);
         out.shear /= out.scaley;
 
+        if (this.determinant() < 0) {
+            out.scalex = -out.scalex;
+        }
+
         // rotation
         var sin = -row[0][1],
             cos = row[1][1];
@@ -586,7 +603,7 @@ function Matrix(a, b, c, d, e, f) {
     \*/
     matrixproto.toTransformString = function (shorter) {
         var s = shorter || this.split();
-        if (s.isSimple) {
+        if (!+s.shear.toFixed(9)) {
             s.scalex = +s.scalex.toFixed(4);
             s.scaley = +s.scaley.toFixed(4);
             s.rotate = +s.rotate.toFixed(4);
@@ -1135,6 +1152,9 @@ function svgTransform2string(tstr) {
             if (params.length == 1) {
                 params.push(params[0], 0, 0);
             }
+            if (params.length > 2) {
+                params = params.slice(0, 2);
+            }
         }
         if (name == "skewX") {
             res.push(["m", 1, 0, math.tan(rad(params[0])), 1, 0, 0]);
@@ -1164,7 +1184,9 @@ function transform2matrix(tstr, bbox) {
                 x2,
                 y2,
                 bb;
-            if (command == "t" && tlen == 3) {
+            if (command == "t" && tlen == 2){
+                m.translate(t[1], 0);
+            } else if (command == "t" && tlen == 3) {
                 if (absolute) {
                     x1 = inver.x(0, 0);
                     y1 = inver.y(0, 0);
@@ -1279,7 +1301,8 @@ function getSomeDefs(el) {
             (el.node.parentNode && wrap(el.node.parentNode)) ||
             Snap.select("svg") ||
             Snap(0, 0),
-        defs = p.select("defs").node;
+        pdefs = p.select("defs"),
+        defs  = pdefs == null ? false : pdefs.node;
     if (!defs) {
         defs = make("defs", p.node).node;
     }
@@ -1419,6 +1442,7 @@ function add2group(list) {
     for (i = 0; i < children.length; i++) {
         this[j++] = wrap(children[i]);
     }
+    return this;
 }
 function Element(el) {
     if (el.snap in hub) {
@@ -1457,7 +1481,6 @@ function arrayFirstValue(arr) {
     }
 }
 (function (elproto) {
-    // SIERRA Element.attr(): There appear to be two possible return values, one of which is blank. (Search the doc for _Returns:_ to identify problems.)
     /*\
      * Element.attr
      [ method ]
@@ -1549,9 +1572,6 @@ function arrayFirstValue(arr) {
     var propString = function () {
         return this.string;
     };
-// SIERRA Element.transform(): seems to allow two return values, one of which (_Element_) is undefined.
-// SIERRA Element.transform(): if this only accepts one argument, it's unclear how it can both _get_ and _set_ a transform.
-// SIERRA Element.transform(): Unclear how Snap transform string format differs from SVG's.
     /*\
      * Element.transform
      [ method ]
@@ -1591,11 +1611,10 @@ function arrayFirstValue(arr) {
             };
         }
         if (tstr instanceof Matrix) {
-            // may be need to apply it directly
-            // TODO: investigate
-            tstr = tstr.toTransformString();
+            this.matrix = tstr;
+        } else {
+            extractTransform(this, tstr);
         }
-        extractTransform(this, tstr);
 
         if (this.node) {
             if (this.type == "linearGradient" || this.type == "radialGradient") {
@@ -1903,7 +1922,7 @@ function arrayFirstValue(arr) {
             if (val) {
                 uses[val] = (uses[val] || []).concat(function (id) {
                     var attr = {};
-                    attr[name] = "url(#" + id + ")";
+                    attr[name] = URL(id);
                     $(it.node, attr);
                 });
             }
@@ -2274,6 +2293,10 @@ function arrayFirstValue(arr) {
     \*/
     elproto.data = function (key, value) {
         var data = eldata[this.id] = eldata[this.id] || {};
+        if (arguments.length == 0){
+            eve("snap.data.get." + this.id, this, data, null);
+            return data;
+        }
         if (arguments.length == 1) {
             if (Snap.is(key, "object")) {
                 for (var i in key) if (key[has](i)) {
@@ -2866,6 +2889,11 @@ function gradientRadial(defs, cx, cy, r, fx, fy) {
      > Usage
      | var t1 = paper.text(50, 50, "Snap");
      | var t2 = paper.text(50, 50, ["S","n","a","p"]);
+     | // Text path usage
+     | t1.attr({textpath: "M10,10L100,100"});
+     | // or
+     | var pth = paper.path("M10,10L100,100");
+     | t1.attr({textpath: pth});
     \*/
     proto.text = function (x, y, text) {
         var el = make("text", this.node);
@@ -3134,7 +3162,7 @@ eve.on("snap.util.attr.mask", function (value) {
             });
         }
         $(this.node, {
-            mask: "url(#" + mask.id + ")"
+            mask: URL(mask.id)
         });
     }
 });
@@ -3155,7 +3183,7 @@ eve.on("snap.util.attr.mask", function (value) {
             });
         }
         $(this.node, {
-            "clip-path": "url(#" + clip.id + ")"
+            "clip-path": URL(clip.id)
         });
     }
 }));
@@ -3178,7 +3206,7 @@ function fillStroke(name) {
                         id: value.id
                     });
                 }
-                var fill = "url(#" + value.node.id + ")";
+                var fill = URL(value.node.id);
             } else {
                 fill = value.attr(name);
             }
@@ -3192,7 +3220,7 @@ function fillStroke(name) {
                             id: grad.id
                         });
                     }
-                    fill = "url(#" + grad.node.id + ")";
+                    fill = URL(grad.node.id);
                 } else {
                     fill = value;
                 }
@@ -3291,6 +3319,53 @@ eve.on("snap.util.attr.r", function (value) {
             rx: value,
             ry: value
         });
+    }
+})(-1);
+eve.on("snap.util.attr.textpath", function (value) {
+    eve.stop();
+    if (this.type == "text") {
+        var id, tp, node;
+        if (!value && this.textPath) {
+            tp = this.textPath;
+            while (tp.node.firstChild) {
+                this.node.appendChild(tp.node.firstChild);
+            }
+            tp.remove();
+            delete this.textPath;
+            return;
+        }
+        if (is(value, "string")) {
+            var defs = getSomeDefs(this),
+                path = wrap(defs.parentNode).path(value);
+            defs.appendChild(path.node);
+            id = path.id;
+            path.attr({id: id});
+        } else {
+            value = wrap(value);
+            if (value instanceof Element) {
+                id = value.attr("id");
+                if (!id) {
+                    id = value.id;
+                    value.attr({id: id});
+                }
+            }
+        }
+        if (id) {
+            tp = this.textPath;
+            node = this.node;
+            if (tp) {
+                tp.attr({"xlink:href": "#" + id});
+            } else {
+                tp = $("textPath", {
+                    "xlink:href": "#" + id
+                });
+                while (node.firstChild) {
+                    tp.appendChild(node.firstChild);
+                }
+                node.appendChild(tp);
+                this.textPath = wrap(tp);
+            }
+        }
     }
 })(-1);
 eve.on("snap.util.attr.text", function (value) {
@@ -3405,6 +3480,10 @@ eve.on("snap.util.getattr.transform", function () {
     eve.stop();
     return this.transform();
 })(-1);
+eve.on("snap.util.getattr.textpath", function () {
+    eve.stop();
+    return this.textPath;
+})(-1);
 // Markers
 (function () {
     function getter(end) {
@@ -3431,7 +3510,7 @@ eve.on("snap.util.getattr.transform", function () {
                 if (!id) {
                     $(value.node, {id: value.id});
                 }
-                this.node.style[name] = "url(#" + id + ")";
+                this.node.style[name] = URL(id);
                 return;
             }
         };
