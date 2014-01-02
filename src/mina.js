@@ -105,20 +105,22 @@ var mina = (function (eve) {
                 delete animations[i];
                 a.s = 1;
                 len--;
+                (function (a) {
+                    setTimeout(function () {
+                        eve("mina.finish." + a.id, a);
+                    });
+                }(a));
             }
             if (isArray(a.start)) {
                 res = [];
                 for (var j = 0, jj = a.start.length; j < jj; j++) {
-                    res[j] = a.start[j] +
+                    res[j] = +a.start[j] +
                         (a.end[j] - a.start[j]) * a.easing(a.s);
                 }
             } else {
-                res = a.start + (a.end - a.start) * a.easing(a.s);
+                res = +a.start + (a.end - a.start) * a.easing(a.s);
             }
             a.set(res);
-            if (a.s == 1) {
-                eve("mina.finish." + a.id, a);
-            }
         }
         len && requestAnimFrame(frame);
     },
@@ -131,7 +133,7 @@ var mina = (function (eve) {
      **
      - a (number) start _slave_ number
      - A (number) end _slave_ number
-     - b (number) start _master_ number (start time in gereal case)
+     - b (number) start _master_ number (start time in general case)
      - B (number) end _master_ number (end time in gereal case)
      - get (function) getter of _master_ number (see @mina.time)
      - set (function) setter of _slave_ number
