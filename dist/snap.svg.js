@@ -1,4 +1,4 @@
-// Snap.svg 0.2.0
+// Snap.svg 0.2.1
 // 
 // Copyright (c) 2013 Adobe Systems Incorporated. All rights reserved.
 // 
@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // 
-// build: 2014-01-02
+// build: 2014-01-13
 // Copyright (c) 2013 Adobe Systems Incorporated. All rights reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -2201,10 +2201,28 @@ function Element(el) {
     try {
         svg = el.ownerSVGElement;
     } catch(e) {}
+    /*\
+     * Element.node
+     [ property (object) ]
+     **
+     * Gives you a reference to the DOM object, so you can assign event handlers or just mess around.
+     > Usage
+     | // draw a circle at coordinate 10,10 with radius of 10
+     | var c = paper.circle(10, 10, 10);
+     | c.node.onclick = function () {
+     |     c.attr("fill", "red");
+     | };
+    \*/
     this.node = el;
     if (svg) {
         this.paper = new Paper(svg);
     }
+    /*\
+     * Element.type
+     [ property (string) ]
+     **
+     * SVG tag name of the given element.
+    \*/
     this.type = el.tagName;
     this.anims = {};
     this._ = {
@@ -3763,7 +3781,7 @@ function gradientRadial(defs, cx, cy, r, fx, fy) {
          | var g = paper.gradient("l(0, 0, 1, 1)#000-#f00-#fff");
          * Linear gradient, absolute from (0, 0) to (100, 100), from black
          * through red at 25% to white:
-         | var g = paper.gradient("L(0, 0, 100, 100)#000-#f00:25%-#fff");
+         | var g = paper.gradient("L(0, 0, 100, 100)#000-#f00:25-#fff");
          * Radial gradient, relative from the center of the element with radius
          * half the width, from black to white:
          | var g = paper.gradient("r(0.5, 0.5, 0.5)#000-#fff");
@@ -4007,7 +4025,7 @@ eve.on("snap.util.grad.parse", function parseGrad(string) {
             color: el[0]
         };
         if (el[1]) {
-            out.offset = el[1];
+            out.offset = parseFloat(el[1]);
         }
         return out;
     });
@@ -4326,6 +4344,12 @@ eve.on("snap.util.getattr.path", function () {
     eve.stop();
     return p;
 });
+function getFontSize() {
+    eve.stop();
+    return this.node.style.fontSize;
+}
+eve.on("snap.util.getattr.fontSize", getFontSize)(-1);
+eve.on("snap.util.getattr.font-size", getFontSize)(-1);
 // default
 eve.on("snap.util.getattr", function () {
     var att = eve.nt();
@@ -6744,10 +6768,20 @@ Snap.plugin(function (Snap, Element, Paper, glob) {
      **
      * Returns an SVG markup string for the shadow filter
      **
-     - dx (number) horizontal shift of the shadow, in pixels
-     - dy (number) vertical shift of the shadow, in pixels
+     - dx (number) #optional horizontal shift of the shadow, in pixels
+     - dy (number) #optional vertical shift of the shadow, in pixels
      - blur (number) #optional amount of blur
      - color (string) #optional color of the shadow
+     - opacity (number) #optional `0..1` opacity of the shadow
+     * or
+     - dx (number) #optional horizontal shift of the shadow, in pixels
+     - dy (number) #optional vertical shift of the shadow, in pixels
+     - color (string) #optional color of the shadow
+     - opacity (number) #optional `0..1` opacity of the shadow
+     * which makes blur default to `4`. Or
+     - dx (number) #optional horizontal shift of the shadow, in pixels
+     - dy (number) #optional vertical shift of the shadow, in pixels
+     - opacity (number) #optional `0..1` opacity of the shadow
      = (string) filter representation
      > Usage
      | var f = paper.filter(Snap.filter.shadow(0, 2, 3)),
@@ -6755,14 +6789,22 @@ Snap.plugin(function (Snap, Element, Paper, glob) {
      |         filter: f
      |     });
     \*/
-    Snap.filter.shadow = function (dx, dy, blur, color) {
+    Snap.filter.shadow = function (dx, dy, blur, color, opacity) {
+        if (typeof blur == "string") {
+            color = blur;
+            opacity = color;
+            blur = 4;
+        }
+        if (typeof color != "string") {
+            opacity = color;
+            color = "#000";
+        }
         color = color || "#000";
         if (blur == null) {
             blur = 4;
         }
-        if (typeof blur == "string") {
-            color = blur;
-            blur = 4;
+        if (opacity == null) {
+            opacity = 1;
         }
         if (dx == null) {
             dx = 0;
@@ -6772,11 +6814,12 @@ Snap.plugin(function (Snap, Element, Paper, glob) {
             dy = dx;
         }
         color = Snap.color(color);
-        return Snap.format('<feGaussianBlur in="SourceAlpha" stdDeviation="{blur}"/><feOffset dx="{dx}" dy="{dy}" result="offsetblur"/><feFlood flood-color="{color}"/><feComposite in2="offsetblur" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>', {
+        return Snap.format('<feGaussianBlur in="SourceAlpha" stdDeviation="{blur}"/><feOffset dx="{dx}" dy="{dy}" result="offsetblur"/><feFlood flood-color="{color}"/><feComposite in2="offsetblur" operator="in"/><feComponentTransfer><feFuncA type="linear" slope="{opacity}"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>', {
             color: color,
             dx: dx,
             dy: dy,
-            blur: blur
+            blur: blur,
+            opacity: opacity
         });
     };
     Snap.filter.shadow.toString = function () {
