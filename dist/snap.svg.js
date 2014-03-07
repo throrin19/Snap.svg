@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // 
-// build: 2014-01-13
+// build: 2014-03-07
 // Copyright (c) 2013 Adobe Systems Incorporated. All rights reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -2330,7 +2330,9 @@ function arrayFirstValue(arr) {
             _.bboxwt = Snap.path.get[el.type] ? Snap.path.getBBox(el.realPath = Snap.path.get[el.type](el)) : Snap._.box(el.node.getBBox());
             return Snap._.box(_.bboxwt);
         } else {
-            el.realPath = (Snap.path.get[el.type] || Snap.path.get.deflt)(el);
+            if(typeof el.realPath == 'undefined' || el.type != 'g')
+                el.realPath = (Snap.path.get[el.type] || Snap.path.get.deflt)(el);
+
             _.bbox = Snap.path.getBBox(Snap.path.map(el.realPath, el.matrix));
         }
         return Snap._.box(_.bbox);
