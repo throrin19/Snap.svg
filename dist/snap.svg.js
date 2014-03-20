@@ -6734,7 +6734,7 @@ Snap.plugin(function (Snap, Element, Paper, glob) {
             onstart && eve.on("snap.drag.start." + this.id, onstart);
             onmove && eve.on("snap.drag.move." + this.id, onmove);
             onend && eve.on("snap.drag.end." + this.id, onend);
-            eve("snap.drag.start." + this.id, start_scope || move_scope || this, x, y, e);
+            eve("snap.drag.start." + this.id, start_scope || move_scope || this, e.clientX + scrollX, e.clientY + scrollY, e);
         }
         this._drag = {};
         draggable.push({el: this, start: start});
