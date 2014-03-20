@@ -440,11 +440,14 @@ Snap.plugin(function (Snap, Element, Paper, glob) {
                 origTransform = this.transform().local;
             });
         }
-        function start(e, x, y) {
+        function start(e) {
+            var ev = (supportsTouch && e.touches ? e.touches[0] : e); // standard mous event or first touch
             (e.originalEvent || e).preventDefault();
-            this._drag.x = x;
-            this._drag.y = y;
-            this._drag.id = e.identifier;
+            var scrollY = getScroll("y"),
+                scrollX = getScroll("x");
+            this._drag.x = ev.clientX + scrollX;
+            this._drag.y = ev.clientY + scrollY;
+            this._drag.id = ev.identifier;
             !drag.length && Snap.mousemove(dragMove).mouseup(dragUp);
             drag.push({el: this, move_scope: move_scope, start_scope: start_scope, end_scope: end_scope});
             onstart && eve.on("snap.drag.start." + this.id, onstart);
