@@ -1507,7 +1507,6 @@ Snap.plugin(function (Snap, Element, Paper, glob) {
             });
         }else{
             var dragstart = function(evt) {
-                    console.log(evt);
                     evt.gesture.preventDefault();
                     onstart(evt.gesture.center.pageX, evt.gesture.center.pageY, evt);
 
@@ -1520,9 +1519,6 @@ Snap.plugin(function (Snap, Element, Paper, glob) {
                 dragend = function(evt) {
                     evt.gesture.preventDefault();
                     onend(evt);
-                    Hammer(this.node).off('dragstart', dragstart);
-                    Hammer(this.node).off('drag', dragmove);
-                    Hammer(this.node).off('dragend', dragend);
                 }.bind(this);
 
             if(onstart){
